@@ -2,7 +2,13 @@ const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 const express = require('express'); // Added for free hosting support
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+const client = new Client({ 
+    intents: [
+        GatewayIntentBits.Guilds, 
+        GatewayIntentBits.GuildMessages, 
+        GatewayIntentBits.MessageContent // <-- This is the missing link!
+    ] 
+});
 const app = express(); // Create the web server instance
 
 // --- FAKE WEBPAGE FOR RENDER ---
