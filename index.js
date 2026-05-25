@@ -7,9 +7,8 @@ const app = express(); // Create the web server instance
 
 // --- FAKE WEBPAGE FOR RENDER ---
 // This creates a simple webpage at your bot's URL. 
-// When Render or a ping service visits it, it says "Bot is running!" and stays awake.
-app.get('/', (req, res) => {
-    res.send('OK');
+app.all('/', (req, res) => {
+    res.sendStatus(200); // Instantly sends a clean, tiny "OK" back for BOTH GET and HEAD requests
 });
 
 // Start listening on Render's assigned port (default to 3000 if local)
