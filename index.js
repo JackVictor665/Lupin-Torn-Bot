@@ -12,9 +12,9 @@ app.all('/', (req, res) => {
 });
 
 // Start listening on Render's assigned port (default to 3000 if local)
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Web server listening on port ${PORT}`);
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Web server successfully bound to port ${PORT}`);
 });
 
 // --- CONFIGURATION ---
