@@ -9,7 +9,7 @@ const app = express(); // Create the web server instance
 // This creates a simple webpage at your bot's URL. 
 // When Render or a ping service visits it, it says "Bot is running!" and stays awake.
 app.get('/', (req, res) => {
-    res.send('Torn Shoplifting Bot is alive and running 24/7!');
+    res.send('OK');
 });
 
 // Start listening on Render's assigned port (default to 3000 if local)
