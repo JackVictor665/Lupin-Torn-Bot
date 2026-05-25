@@ -41,6 +41,35 @@ client.once('ready', () => {
     setInterval(checkTornShoplifting, CHECK_INTERVAL);
 });
 
+// --- INTERACTIVE TEXT COMMAND ---
+// Listens for you typing !check in the chat to confirm the bot is healthy
+client.on('messageCreate', async (message) => {
+    // Ignore messages sent by bots (including Lupin himself) to prevent infinite loops
+    if (message.author.bot) return;
+
+    // Check if the message starts with our command prefix
+    if (message.content.toLowerCase() === '!check') {
+        try {
+            // Let the user know Lupin is actively testing the connection
+            const systemCheckMessage = await message.reply("🔄 Checking connection to Torn City data centers...");
+
+            // Make a quick live test call to the Torn API
+            const url = `https://api.torn.com/torn/?selections=shoplifting&key=${TORN_API_KEY}`;
+            const response = await axios.get(url);
+
+            if (response.data && response.data.shoplifting) {
+                // If the data is structure-valid, the connection is 100% healthy
+                await systemCheckMessage.edit("Hi everyone! I just quickly checked and I can still see all the stores, so no need to worry! 🏪👀");
+            } else {
+                await systemCheckMessage.edit("❌ I'm awake, but I'm having trouble reading the Torn API. Check the API key configuration.");
+            }
+        } catch (error) {
+            console.error("Error during manual !check command:", error.message);
+            await message.reply("❌ Connection attempt failed. Check Render server logs for details.");
+        }
+    }
+});
+
 async function checkTornShoplifting() {
     try {
         if (!TORN_API_KEY) {
