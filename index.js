@@ -29,14 +29,14 @@ const CHANNEL_ID = '1508557031307743252';
 const CHECK_INTERVAL = 3 * 60 * 1000; // 3 minutes
 
 const shopConfig = {
-    sweet_shop: { name: "Sally's Sweet Shop", roleId: "1508555055941292133", maxMeasures: 1 },
-    bits_bobs: { name: "Bits 'n' Bobs", roleId: "1508555178918543421", maxMeasures: 1 },
-    clothes: { name: "TC Clothing", roleId: "1508556207106031636", maxMeasures: 2 },
-    supermarket: { name: "Super Store", roleId: "1508555242176909511", maxMeasures: 2 },
+    sallys_sweet_shop: { name: "Sally's Sweet Shop", roleId: "1508555055941292133", maxMeasures: 1 },
+    Bits_n_bobs: { name: "Bits 'n' Bobs", roleId: "1508555178918543421", maxMeasures: 1 },
+    tc_clothing: { name: "TC Clothing", roleId: "1508556207106031636", maxMeasures: 2 },
+    super_store: { name: "Super Store", roleId: "1508555242176909511", maxMeasures: 2 },
     pharmacy: { name: "Pharmacy", roleId: "1508556561163747378", maxMeasures: 2 },
-    cyberforce: { name: "Cyber Force", roleId: "1508555676929097951", maxMeasures: 2 },
-    jewelry: { name: "Jewelry Store", roleId: "1508555762199171229", maxMeasures: 2 },
-    gun_shop: { name: "Big Al's Gun Shop", roleId: "1508555852221776053", maxMeasures: 2 }
+    cyber_force: { name: "Cyber Force", roleId: "1508555676929097951", maxMeasures: 2 },
+    jewelry_store: { name: "Jewelry Store", roleId: "1508555762199171229", maxMeasures: 2 },
+    big_als: { name: "Big Al's Gun Shop", roleId: "1508555852221776053", maxMeasures: 2 }
 };
 
 let previousDisabledShops = new Set();
@@ -70,19 +70,22 @@ client.on('messageCreate', async (message) => {
             const shopsData = response.data.shoplifting;
             let statusDescription = "";
 
-            // Loop through each shop to compile our report card
+// Loop through each shop to compile our report card
             for (const [shopKey, config] of Object.entries(shopConfig)) {
-                const shopApiData = shopsData[shopKey];
+                const shopApiData = shopsData[shopKey]; // shopApiData is an array now!
                 
-                // Count how many measures are currently disabled
-                const currentDisabledCount = (shopApiData && shopApiData.disabled_security) ? shopApiData.disabled_security.length : 0;
+                // Count how many items in the array have "disabled: true"
+                let currentDisabledCount = 0;
+                if (Array.isArray(shopApiData)) {
+                    currentDisabledCount = shopApiData.filter(measure => measure.disabled === true).length;
+                }
                 
                 // Choose a visual indicator depending on security state
-                let statusIcon = "🔒"; // Full security
+                let statusIcon = "🔒"; 
                 if (currentDisabledCount === config.maxMeasures) {
-                    statusIcon = "🚨"; // Completely vulnerable!
+                    statusIcon = "🚨"; 
                 } else if (currentDisabledCount > 0) {
-                    statusIcon = "⚠️"; // Partially down
+                    statusIcon = "⚠️"; 
                 }
 
                 statusDescription += `${statusIcon} **${config.name}**: ${currentDisabledCount}/${config.maxMeasures} measures disabled\n`;
@@ -126,12 +129,14 @@ async function checkTornShoplifting() {
 
         if (!channel) return;
 
-        for (const [shopKey, config] of Object.entries(shopConfig)) {
+for (const [shopKey, config] of Object.entries(shopConfig)) {
             const shopApiData = shopsData[shopKey];
             
-            if (!shopApiData || !shopApiData.disabled_security) continue;
+            if (!Array.isArray(shopApiData)) continue;
 
-            const completelyClear = shopApiData.disabled_security.length === config.maxMeasures;
+            // Count how many items are disabled
+            const currentDisabledCount = shopApiData.filter(measure => measure.disabled === true).length;
+            const completelyClear = currentDisabledCount === config.maxMeasures;
 
             if (completelyClear) {
                 if (!previousDisabledShops.has(shopKey)) {
