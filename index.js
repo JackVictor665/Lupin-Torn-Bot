@@ -59,7 +59,7 @@ client.on('messageCreate', async (message) => {
             const statusLoadingMessage = await message.reply("🛰️ Querying Torn City data centers... Fetching live shop security status.");
 
             // Request fresh data from Torn
-            const url = `https://api.torn.com/torn/?selections=shoplifting&key=${TORN_API_KEY}`;
+            const url = `https://api.torn.com/torn/?selections=shoplifting&key=${TORN_API_KEY}&comment=LupinBot`;
             const response = await axios.get(url);
 
             if (!response.data || !response.data.shoplifting) {
@@ -113,7 +113,7 @@ async function checkTornShoplifting() {
             return;
         }
 
-        const url = `https://api.torn.com/torn/?selections=shoplifting&key=${TORN_API_KEY}`;
+        const url = `https://api.torn.com/torn/?selections=shoplifting&key=${TORN_API_KEY}&comment=LupinBot`;
         const response = await axios.get(url);
         
         if (!response.data || !response.data.shoplifting) {
