@@ -48,30 +48,60 @@ client.once('ready', () => {
 });
 
 // --- INTERACTIVE TEXT COMMAND ---
-// Listens for you typing !check in the chat to confirm the bot is healthy
+// --- INTERACTIVE STATUS DASHBOARD ---
+// Listens for !check and replies with a live breakdown of all store security states
 client.on('messageCreate', async (message) => {
-    // Ignore messages sent by bots (including Lupin himself) to prevent infinite loops
     if (message.author.bot) return;
 
-    // Check if the message starts with our command prefix
     if (message.content.toLowerCase() === '!check') {
         try {
-            // Let the user know Lupin is actively testing the connection
-            const systemCheckMessage = await message.reply("🔄 Checking connection to Torn City data centers...");
+            // Send a temporary loading indicator
+            const statusLoadingMessage = await message.reply("🛰️ Querying Torn City data centers... Fetching live shop security status.");
 
-            // Make a quick live test call to the Torn API
+            // Request fresh data from Torn
             const url = `https://api.torn.com/torn/?selections=shoplifting&key=${TORN_API_KEY}`;
             const response = await axios.get(url);
 
-            if (response.data && response.data.shoplifting) {
-                // If the data is structure-valid, the connection is 100% healthy
-                await systemCheckMessage.edit("Hi everyone! I just quickly checked and I can still see all the stores, so no need to worry! 🏪👀");
-            } else {
-                await systemCheckMessage.edit("❌ I'm awake, but I'm having trouble reading the Torn API. Check the API key configuration.");
+            if (!response.data || !response.data.shoplifting) {
+                await statusLoadingMessage.edit("❌ System online, but the Torn API returned an empty response. Check your API key.");
+                return;
             }
+
+            const shopsData = response.data.shoplifting;
+            let statusDescription = "";
+
+            // Loop through each shop to compile our report card
+            for (const [shopKey, config] of Object.entries(shopConfig)) {
+                const shopApiData = shopsData[shopKey];
+                
+                // Count how many measures are currently disabled
+                const currentDisabledCount = (shopApiData && shopApiData.disabled_security) ? shopApiData.disabled_security.length : 0;
+                
+                // Choose a visual indicator depending on security state
+                let statusIcon = "🔒"; // Full security
+                if (currentDisabledCount === config.maxMeasures) {
+                    statusIcon = "🚨"; // Completely vulnerable!
+                } else if (currentDisabledCount > 0) {
+                    statusIcon = "⚠️"; // Partially down
+                }
+
+                statusDescription += `${statusIcon} **${config.name}**: ${currentDisabledCount}/${config.maxMeasures} measures disabled\n`;
+            }
+
+            // Wrap the data in a crisp Discord Embed
+            const statusEmbed = new EmbedBuilder()
+                .setTitle("🏪 Torn Shoplifting Security Dashboard")
+                .setDescription(statusDescription)
+                .setColor(0x3498DB) // Neutral blue color for regular checks
+                .setFooter({ text: "Lupin Surveillance System" })
+                .setTimestamp();
+
+            // Edit our initial message to display the completed dashboard
+            await statusLoadingMessage.edit({ content: "✅ Live status report compiled successfully:", embeds: [statusEmbed] });
+
         } catch (error) {
-            console.error("Error during manual !check command:", error.message);
-            await message.reply("❌ Connection attempt failed. Check Render server logs for details.");
+            console.error("Error during manual !check status compilation:", error.message);
+            await message.reply("❌ Error compiling the live status. Check Render server logs for raw output details.");
         }
     }
 });
