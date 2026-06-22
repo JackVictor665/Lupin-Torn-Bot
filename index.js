@@ -26,7 +26,7 @@ app.listen(PORT, '0.0.0.0', () => {
 // --- CONFIGURATION ---
 const TORN_API_KEY = process.env.TORN_API_KEY; 
 const CHANNEL_ID = '1508557031307743252'; 
-const CHECK_INTERVAL = 3 * 60 * 1000; // 3 minutes
+const CHECK_INTERVAL = 2 * 60 * 1000; // 3 minutes
 
 const shopConfig = {
     sallys_sweet_shop: { name: "Sally's Sweet Shop", roleId: "1508555055941292133", maxMeasures: 1 },
