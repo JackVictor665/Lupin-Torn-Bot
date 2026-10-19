@@ -26,7 +26,9 @@ app.listen(PORT, '0.0.0.0', () => {
 // --- CONFIGURATION ---
 const TORN_API_KEY = process.env.TORN_API_KEY; 
 const CHANNEL_ID = '1508557031307743252'; 
-const CHECK_INTERVAL = 2 * 60 * 1000; // 3 minutes
+const CHECK_INTERVAL = 2 * 60 * 1000;
+const ALERT_COOLDOWN = 5 * 60 * 1000;
+const RESTORE_GRACE_PERIOD = 5 * 60 * 1000;
 
 const shopConfig = {
     sallys_sweet_shop: { name: "Sally's Sweet Shop", roleId: "1508555055941292133", maxMeasures: 1 },
@@ -39,13 +41,21 @@ const shopConfig = {
     big_als: { name: "Big Al's Gun Shop", roleId: "1508555852221776053", maxMeasures: 2 }
 };
 
-let previousDisabledShops = new Set();
+const shopWatchStates = new Map();
+let watcherInterval;
+let checkInProgress = false;
 
 client.once('ready', () => {
     console.log(`Bot logged in as ${client.user.tag}. Automation sequence active.`);
-    checkTornShoplifting();
-    setInterval(checkTornShoplifting, CHECK_INTERVAL);
+    startShopliftingWatcher();
 });
+
+function startShopliftingWatcher() {
+    if (watcherInterval) return;
+
+    checkTornShoplifting();
+    watcherInterval = setInterval(checkTornShoplifting, CHECK_INTERVAL);
+}
 
 // --- INTERACTIVE TEXT COMMAND ---
 // --- INTERACTIVE STATUS DASHBOARD ---
@@ -110,6 +120,12 @@ client.on('messageCreate', async (message) => {
 });
 
 async function checkTornShoplifting() {
+    if (checkInProgress) {
+        console.log("Skipping shoplifting check because the previous check is still running.");
+        return;
+    }
+
+    checkInProgress = true;
     try {
         if (!TORN_API_KEY) {
             console.error("CRITICAL ERROR: TORN_API_KEY variable is missing from the environment configuration.");
@@ -129,7 +145,7 @@ async function checkTornShoplifting() {
 
         if (!channel) return;
 
-for (const [shopKey, config] of Object.entries(shopConfig)) {
+        for (const [shopKey, config] of Object.entries(shopConfig)) {
             const shopApiData = shopsData[shopKey];
             
             if (!Array.isArray(shopApiData)) continue;
@@ -137,31 +153,55 @@ for (const [shopKey, config] of Object.entries(shopConfig)) {
             // Count how many items are disabled
             const currentDisabledCount = shopApiData.filter(measure => measure.disabled === true).length;
             const completelyClear = currentDisabledCount === config.maxMeasures;
+            const now = Date.now();
+            const watchState = shopWatchStates.get(shopKey) ?? {
+                status: "watching",
+                lastAlertAt: 0,
+                graceUntil: 0
+            };
 
             if (completelyClear) {
-                if (!previousDisabledShops.has(shopKey)) {
-                    const securityText = config.maxMeasures === 1 ? "Its security tracking measure is" : "All security tracking measures are";
+                const cooldownExpired = now - watchState.lastAlertAt >= ALERT_COOLDOWN;
+                const gracePeriodExpired = now >= watchState.graceUntil;
 
-                    const alertEmbed = new EmbedBuilder()
-                        .setTitle(`🚨 SECURITY DOWN: ${config.name} 🚨`)
-                        .setDescription(`${securityText} currently **DISABLED**! Free loot window is open.`)
-                        .setColor(0x00FF00)
-                        .setTimestamp();
+                if (watchState.status !== "alerting" && cooldownExpired && gracePeriodExpired) {
+                    const previousState = { ...watchState };
+                    watchState.status = "alerting";
+                    shopWatchStates.set(shopKey, watchState);
 
-                    await channel.send({ content: `<@&${config.roleId}>`, embeds: [alertEmbed] });
-                    previousDisabledShops.add(shopKey);
-                    console.log(`Alert sent for ${config.name}`);
+                    try {
+                        const securityText = config.maxMeasures === 1 ? "Its security tracking measure is" : "All security tracking measures are";
+
+                        const alertEmbed = new EmbedBuilder()
+                            .setTitle(`🚨 SECURITY DOWN: ${config.name} 🚨`)
+                            .setDescription(`${securityText} currently **DISABLED**! Free loot window is open.`)
+                            .setColor(0x00FF00)
+                            .setTimestamp();
+
+                        await channel.send({ content: `<@&${config.roleId}>`, embeds: [alertEmbed] });
+                        watchState.lastAlertAt = now;
+                        console.log(`Alert sent for ${config.name}`);
+                    } catch (error) {
+                        shopWatchStates.set(shopKey, previousState);
+                        throw error;
+                    }
                 }
-            } else {
-                if (previousDisabledShops.has(shopKey)) {
-                    previousDisabledShops.delete(shopKey);
-                    console.log(`Security restored at ${config.name}. Resetting watch state.`);
-                }
+            } else if (watchState.status === "alerting") {
+                watchState.status = "restored";
+                watchState.graceUntil = now + RESTORE_GRACE_PERIOD;
+                shopWatchStates.set(shopKey, watchState);
+                console.log(`Security restored at ${config.name}. Re-alert grace period started.`);
+            } else if (watchState.status === "restored" && now >= watchState.graceUntil) {
+                watchState.status = "watching";
+                watchState.graceUntil = 0;
+                shopWatchStates.set(shopKey, watchState);
             }
         }
 
     } catch (error) {
         console.error("Error running the automated Torn API check:", error.message);
+    } finally {
+        checkInProgress = false;
     }
 }
 
